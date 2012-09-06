@@ -90,6 +90,7 @@ class n_array
     using const_reverse_iterator = std::reverse_iterator<const_iterator>;
 
     nested_type & operator[] (size_t index) { return m_base[index]; }
+    nested_type & at (size_t index) { return m_base.at(index); }
 
     iterator begin () { return m_base.begin()->begin(); } 
     const_iterator cbegin () { return m_base.begin()->begin(); } 
@@ -103,6 +104,8 @@ class n_array
 
     constexpr size_t size () { return Multiplied<Size, Dimensions...>::value; }
     constexpr bool empty () { return size() == 0; }
+
+    void fill (const T & value) { for (auto & e : *this) e = value; };
 };
 
 template <typename T, size_t Size>
@@ -127,6 +130,7 @@ class n_array<T, Size>
     using const_reverse_iterator = std::reverse_iterator<const_iterator>;
 
     T & operator[] (size_t index) { return m_base[index]; }
+    T & at (size_t index) { return m_base.at(index); }
 
     iterator begin () { return m_base.begin(); };
     const_iterator cbegin () { return m_base.begin(); } 
@@ -140,5 +144,7 @@ class n_array<T, Size>
 
     constexpr size_t size () { return Size; }
     constexpr bool empty () { return size() == 0; }
+
+    void fill (const T & value) { for (auto & e : *this) e = value; };
 };
 

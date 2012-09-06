@@ -33,7 +33,31 @@ int main ()
            
     for (auto e : three)
     {
-        cout << e << endl;
+        cout << e << " ";
+    }
+    cout << endl;
+
+    for (auto e : three.at(1))
+    {
+        cout << e << " ";
+    }
+    cout << endl;
+
+    for (auto e : three.at(2)[1])
+    {
+        cout << e << " ";
+    }
+    cout << endl;
+
+
+    try
+    {
+        three.at(3);
+        cout << "Ooops... failed to catch out of range exception" << endl;
+    }
+    catch (const std::out_of_range &)
+    {
+        cout << "Caught out of range exception" << endl;
     }
 
     cout << "Three front: " << three.front() << endl;
@@ -44,6 +68,17 @@ int main ()
 
     cout << "Three is empty? " << three.empty() << endl;
     cout << "None is empty? " << none.empty() << endl;
+
+
+    three.fill(9);
+    three[0].fill(8);
+    three[2][0].fill(7);
+
+    for (auto e : three)
+    {
+        cout << e << " ";
+    }
+    cout << endl;
 
     return 0;
 }
