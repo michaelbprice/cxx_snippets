@@ -66,7 +66,8 @@ struct array_to_tuple<TupleIndex, StartOffset, 1>
 template <size_t ... Slices, typename T, size_t N>
 std::tuple<std::array<T, Slices>...> array_splice (const std::array<T, N> & a)
 {
-    static_assert(const_sum<Slices...>::value == N, "Does not compute");
+    static_assert(const_sum<Slices...>::value >= N, "You did not provide enough splice arguments!");
+    static_assert(const_sum<Slices...>::value <= N, "You provided too many splice arguments!");
  
     std::tuple<std::array<T, Slices>...> t;
  
@@ -83,7 +84,14 @@ int main ()
     
     for (auto e : a) { cout << e << " "; } cout << endl << endl;
  
-    auto t = array_splice<2, 3, 2, 2, 1>(a);
+    //auto t0 = array_splice<9>(a);
+    //auto t1= array_splice<2, 3, 4>(a);
+    //auto t2= array_splice<2, 3, 4, 5>(a);
+    
+    //auto t = array_splice<2, 3, 2, 2, 1>(a);
+    //auto t = array_splice<10>(a);
+    //auto t = array_splice<1,1,1,1,1,1,1,1,1,1>(a);
+    auto t = array_splice<0, 5, 0 , 5, 0>(a);
  
     cout << get<0>(t).size() << ": ";
     for (auto e : get<0>(t)) { cout << e << " "; } cout << endl;
