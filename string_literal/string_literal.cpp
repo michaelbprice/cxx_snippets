@@ -42,7 +42,7 @@ template <typename charT, char HeadChar, char... TailChars>
 class literal_string<charT, HeadChar, TailChars...>
 {
 public:
-    static constexpr const charT _data[] = { HeadChar, TailChars... };
+    static constexpr const charT _data[] = { HeadChar, TailChars..., '\0' };
 
 #pragma region Friends and constructors (broken)
 
@@ -59,7 +59,7 @@ public:
 
     using value_type = charT;
     using size_type = std::size_t;
-    using difference_type = std::size_t;
+    using difference_type = std::ptrdiff_t;
     // iterator types???
 
     using tail_type = literal_string<charT, TailChars...>;
@@ -287,19 +287,24 @@ public:
         return _data;
     }
 
-    constexpr size_type to_number () const
+    constexpr difference_type to_number () const
     {
         static_assert((_data[0] >= '0' && _data[0] <= '9'), "Not a numeric string");
 
         if (size_value == 1)
+        {
             return _data[0] - '0';
+        }
 
-        auto power = size_type{1};
+        const difference_type right_side_value = cdr().to_number();
+
+        auto power_of_ten = size_value - 1; 
+        auto multiplier = size_type{1};
         
-        for (size_type i = 1; i < size_value; ++i)
-            power *= 10;
-
-        return ((_data[0] - '0') * power) + cdr().to_number();
+        for (size_type i = 0; i < power_of_ten; ++i)
+            multiplier *= 10;
+        
+        return ((_data[0] - '0') * multiplier) + right_side_value;
     }
 
     constexpr operator const char* () const
@@ -325,7 +330,7 @@ template<typename charT>
 class literal_string<charT>
 {
 public:
-    static constexpr const charT _data[] = { };
+    static constexpr const charT _data[] = { '\0' };
 
 #pragma region Friends and constructors (broken)
 /*
@@ -375,6 +380,25 @@ public:
     // There are no substring functions for empty strings
 
     #pragma region Comparison
+
+    template <charT... OtherChars>
+    constexpr int compare(const literal_string<charT, OtherChars...>& other) const
+    {
+        return other.empty() ? 0 : -1;
+    }
+
+    constexpr int compare(const basic_string<charT>& str) const
+    {
+        return str.empty() ? 0 : -1;
+    }
+
+    constexpr int compare(std::size_t pos1, std::size_t count1, const basic_string<charT>& str) const;
+    constexpr int compare(std::size_t pos1, std::size_t count1, const basic_string<charT>& str,
+                          std::size_t pos2, std::size_t count2) const;
+    constexpr int compare(const charT* s) const;
+    constexpr int compare(std::size_t pos1, std::size_t count1, const charT* s) const;
+    constexpr int compare(std::size_t pos1, std::size_t count1,
+                          const charT* s, std::size_t count2) const;
 
     #pragma endregion
 
@@ -572,6 +596,9 @@ void testEmptyStrings()
     static_assert(wide.empty() == true, "Wide empty() is wrong");
     static_assert(utf16.empty() == true, "UTF-16 empty() is wrong");
     static_assert(utf32.empty() == true, "UTF-32 empty() is wrong");
+
+    static_assert(mb == ""_cs, "operator==() is wrong");
+    static_assert(mb != " "_cs, "operator!=() is wrong");
 }
 
 void testSearching()
@@ -624,8 +651,10 @@ void testConversions()
     static_assert("65535"_cs.to_number() == 65535, "to_number() is wrong");
     //"99kj343"_cs.to_number();
 
-    constexpr size_t number = "12345"_cs;
+    constexpr ptrdiff_t number = "12345"_cs;
     static_assert(number == 12345, "operator size_type is wrong");
+    //constexpr ptrdiff_t positive = "+1"_cs;
+    //static_assert(positive == 1, "to_number() is wrong");
 }
 
 void testConcatenation()
