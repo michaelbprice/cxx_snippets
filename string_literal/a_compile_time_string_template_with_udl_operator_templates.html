@@ -1,0 +1,855 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01//EN"
+   "http://www.w3.org/TR/html4/strict.dtd">
+
+<html>
+<head>
+
+  <meta http-equiv="Content-Type" content="text/html;charset=US-ASCII">
+
+<!-- This should replace the style block once it is published somewhere accessible
+  <link href="../../base_www/style.hinc" rel="stylesheet" type="text/css" />
+-->
+
+  <style type="text/css">
+
+    body { color: #000000; background-color: #FFFFFF; }
+    del { text-decoration: line-through; color: #8B0040; }
+    ins { text-decoration: underline; color: #005100; }
+
+    p.example { margin-left: 2em; }
+    pre.example { margin-left: 2em; }
+    div.example { margin-left: 2em; }
+
+    code.extract { background-color: #F5F6A2; }
+    pre.extract { margin-left: 2em; background-color: #F5F6A2;
+      border: 1px solid #E1E28E; }
+
+    p.function { }
+    .attribute { margin-left: 2em; }
+    .attribute dt { float: left; font-style: italic;
+      padding-right: 1ex; }
+    .attribute dd { margin-left: 0em; }
+
+    blockquote.std { color: #000000; background-color: #F1F1F1;
+      border: 1px solid #D1D1D1;
+      padding-left: 0.5em; padding-right: 0.5em; }
+    blockquote.stddel { text-decoration: line-through;
+      color: #000000; background-color: #FFEBFF;
+      border: 1px solid #ECD7EC;
+      padding-left: 0.5empadding-right: 0.5em; ; }
+
+    blockquote.stdins { text-decoration: underline;
+      color: #000000; background-color: #C8FFC8;
+      border: 1px solid #B3EBB3; padding: 0.5em; }
+
+    table { border: 1px solid black; border-spacing: 0px;
+      margin-left: auto; margin-right: auto; }
+    th { text-align: left; vertical-align: top;
+      padding-left: 0.8em; border: none; }
+    td { text-align: left; vertical-align: top;
+      padding-left: 0.8em; border: none; }
+      
+    table.docinfo { border: none; border-spacing: 0px;
+      margin-left: auto; margin-right: none; float: right; }
+
+  </style>
+
+  <title>A compile-time string library template with UDL operator templates</title>
+
+</head>
+
+<body>
+  <table border="1" class="docinfo">
+    <tr> <th>Doc. No.:</th> <td>D3933</td> </tr>
+    <tr> <th>Date:</th>     <td>2014-02-15</td> </tr>
+    <tr> <th>Project:</th>  <td>Programming Language C++, Reflection Study Group</td> </tr>
+    <tr> <th>Reply To:</th> <td>Michael Price<br/>
+                                &lt;<a href="mailto:michael.b.price.dev@gmail.com">michael.b.price.dev@gmail.com</a>&gt;</td> </tr>
+  </table>
+  
+  <br/>
+  <h1>A compile-time string library template with UDL operator templates</h1>
+
+  <h2><a name="toc">I. Table of Contents</a></h2>
+
+  <p style="background-color:#FFFF99;">
+  [<i>TODO:</i> Fill this out &mdash;<i>end TODO</i>]
+  </p>
+
+  <h2><a name="introduction">II.Introduction</a></h2>
+
+  <p>
+    Proposes a compile-time string library type template, <code>std::basic_string_literal</code>, a user-defined literal (UDL) to facilitate instantiation of said template, as well as a language extension to allow implementation of the specified UDL.
+  </p>
+
+  <h2><a name="motivation">III.Motivation</a></h2>
+
+  <p>
+    The type model of literal strings in C++ was largely inherited directly from C, with a few minor tweaks throughout the years (such as restricting coversions to non-const <code>char*</code>). The inclusion of the standard library's <code>std::basic_string</code> type solves many of the problems with the usability of string literals by providing a rich interface for accessing, searching, and manipulating the value of the string. There are many places where <code>std::basic_string</code> or <code>const char*</code> both fall short.
+  </p>
+
+  <pre class="example">
+  <code>// Concatenation
+  //
+  auto x1 = "Hello" + ", " + "World!"; // Error!
+  auto x2 = std::string("Hello") + ", " + "World!"; // Valid, but odd. Also runtime cost.
+  auto x3 = "Hello" + std::string(", ") + "World!"; // Error!
+  auto x4 = "Hello" ", " "World!"; // Valid, but...
+
+  auto conjunction = std::string(", ");
+  auto x5 = "Hello" conjuction "World!"; // Error!
+
+  // Generic Programming
+  //
+  template &lt;typename T&gt;
+  typename T::size_type find(T t, typename T::value_type q)
+  {
+      return t.find(q);
+  }
+
+  auto s1 = std::string("One");
+  auto s2 = "Two";
+
+  find(s1, 'n'); // Okay
+  find(s2, 'w'); // Error!
+  find(std::string(s2), 'w'); // Okay, but come on!
+
+  // Template Metaprogramming
+  //
+  template &lt;typename T&gt; struct metaprogram { /* ... */ };
+
+  metaprogram&lt;"Hello, World!"&gt; m1; // Error!
+  metaprogram&lt;std::string("Hello, World!")&gt; m2; // What does this even mean!
+  metaprogram&lt;decltype("Hello, World!")&gt; m3; // Not what you wanted!
+  metaprogram&lt;decltype(std::string("Hello, World!"))&gt; m4; // Also not what you wanted!
+  metaprogram&lt;boost::mpl::string&lt;'Hell','o, W','orld', '!'&gt;&gt; m5; // There we go! But oh my...
+  metaprogram&lt;_S("Hello, World!")&gt; m6; // Don't look behind the curtain (see reference [1])</code>
+  </pre>
+
+  <p>
+    We propose a new library template, <code>std::basic_string_literal</code>, and a UDL to solve the problems with the previous example. Application of the template to the problems above is shown below.
+  </p>
+
+  <pre class="example">
+  <code>// Concatenation
+  //
+  constexpr auto x1 = "Hello"S + ", "S + "World!"S; // Valid, no runtime cost
+
+  constexpr auto conjunction = ", "S;
+  constexpr auto x5 = "Hello"S + conjuction + "World!"S; // Valid, no runtime cost
+
+  // Generic Programming
+  //
+  template &lt;typename T&gt;
+  constexpr typename T::size_type find(T t, typename T::value_type q)
+  {
+      return t.find(q);
+  }
+
+  auto s1 = std::string("One");
+  constexpr auto s2 = "Two"S;
+
+  find(s1, 'n'); // Okay
+  find(s2, 'w'); // Valid, no runtime cost
+
+  // Template Metaprogramming
+  //
+  template &lt;typename T&gt; struct metaprogram { /* ... */ };
+
+  metaprogram&lt;decltype("Hello, World!"S)&gt; m1; // Valid, although a bit unfortunate
+  </code>
+  </pre>
+
+  <p>
+    We believe that this template, and the mechanisms supporting it, could have many other application which we have not listed here.  See N3599 [2] for such examples.
+  </p>
+
+  <h2><a name="impact">IV. Impact On the Standard</a></h2>
+
+  <p>
+    This proposal losely <em>depends</em> on the specification of <code>std::basic_string</code>. It does not however <em>affect</em> the specficiation of that template. It does depend on the UDL mechanism [section #???] introduced in C++11. It also requires an extension of the UDL operator template mechanism to apply to string literals in addition to numeric literals.
+  </p>
+
+  <p style="background-color:#FFFF99;">
+  [<i>TODO:</i> Fill in section numbers against n3797 or the DIS. &mdash;<i>end TODO</i>]
+  </p>
+
+  <h2><a name="design">V. Design Decisions</a></h2>
+
+  <p>
+    The design and wording for the UDL operator template extension has been taken directly from N3599 [2]. There are additional rationales in that paper for the usefulness of that particular extension.
+  </p>
+
+  <p>
+    The design of the proposed compile-time string template is meant to include the <code>const</code> portions of the <code>std::basic_string</code> template as closely as possible, while also adding a couple of additional capabilities. The proposed UDL that would construct these new types uses an <code>S</code>, whereas the UDL for <code>std::basic_string</code> uses an <code>s</code>; this was a conscious design decision.
+  </p>
+
+  <p>
+    We have purposefully made the only constructor of <code>basic_string_literal</code> both <code>private</code> and <code>constexpr</code>.  Creation is only allowed via the supplied <code>constexpr</code> UDL in order to prevent any runtime instances of the instantiated template.
+  </p>
+
+  <p>
+    There are a couple of design alternatives that were identified, but are not explored in this paper. One design would forego the extension to UDL operator templates in favor of the <em>cooked</em> form of the UDL.  This could allow a library-only solution with possibly improved efficiency, but might restrict the possible interface.  Another alternative would take the approach that lambdas and/or <code>std::initializer_list</code> took, which would result in "compiler magic" to provide the appropriate type.  The author feels that the proposal in this paper is a middle-ground between these other approaches.  Hopefully, papers making the alternative design decisions (as well as implementations) will be produced so that a proper comparison can occur.
+  </p>
+
+  <h2><a name="specification">VI. Technical Specification</a></h2>
+
+  <p style="background-color:#FFFF99;">
+  [<i>RFC:</i> How much of a technical specification should this have at this point.  Do we want to pass it through EWG/LEWG before settling on wording? &mdash;<i>end RFC</i>]
+  </p>
+
+  <h3><a name="specification/udl_template">UDL operator template extension</a></h3>
+
+  <p>
+    The term of art <em>literal operator template</em> is split into two terms,
+    <em>numeric literal operator template</em> and <em>string literal operator
+    template</em>. The term <em>literal operator template</em> is retained and refers
+    to either form.
+  </p>
+
+  <p>
+    Replace <q>literal operator template</q> with <q>numeric literal operator
+    template</q> in [lex.ext] (2.14.8)/3 and [lex.ext] (2.14.8)/4:
+  </p>
+
+  <blockquote class="std">
+    [...] Otherwise, <em>S</em> shall contain a raw literal operator or a
+    <ins>numeric</ins> literal operator template (13.5.8) but not both. [...]
+    Otherwise (<em>S</em> contains a <ins>numeric</ins> literal operator template),
+    <em>L</em> is treated as a call of the form [...]
+  </blockquote>
+
+  <p>Change in [lex.ext] (2.14.8)/5:</p>
+
+  <blockquote class="std">
+    If <em>L</em> is a <em>user-defined-string-literal</em>, <ins>let <em>C</em> be the
+    element type of the string literal as determined by its
+    <em>encoding-prefix</em>,</ins> let <em>str</em> be the literal without its
+    <em>ud-suffix</em><ins>,</ins> and let <em>len</em> be the number of code units in
+    <em>str</em> (i.e., its length excluding the terminating null character).
+    <ins>If <em>S</em> contains a literal operator with parameter types <code>const
+    <em>C</em> *</code> and <code>std::size_t</code>, the</ins> <del>The</del> literal
+    <em>L</em> is treated as a call of the form
+
+    <p></p>
+
+    <code>&nbsp; operator "" <em>X</em>(<em>str</em>, <em>len</em>)</code>
+
+    <ins>
+      <p>
+        Otherwise, <em>S</em> shall contain a string literal operator template
+        (13.5.8), and <em>L</em> is treated as a call of the form
+      </p>
+
+      <code>&nbsp; operator "" <em>X</em>&lt;<em>C</em>,
+        <em>e</em>'<em>s<sub>1</sub></em>',
+        <em>e</em>'<em>s<sub>2</sub></em>', ...
+        <em>e</em>'<em>s<sub>k</sub></em>'&gt;()</code>
+
+      <p></p>
+
+      where <em>e</em> is empty when the <em>encoding-prefix</em> is <code>u8</code>
+      and is otherwise the <em>encoding-prefix</em> of the string literal, and
+      <em>str</em> contains the sequence of code units
+      <em>s<sub>1</sub>s<sub>2</sub>...s<sub>k</em> (excluding the terminating null
+      character).
+    </ins>
+  </blockquote>
+
+  <p>Change in [over.literal] (13.5.8)/5:</p>
+
+  <blockquote class="std">
+    <del>
+      The declaration of a literal operator template shall have an empty
+      <em>parameter-declaration-clause</em> and its <em>template-parameter-list</em>
+      shall have
+    </del>
+
+    <ins>
+      A <em>numeric literal operator template</em> is a literal operator template
+      whose <em>template-parameter-list</em> has
+    </ins>
+
+    a single <em>template-parameter</em> that is a non-type template parameter pack
+    (14.5.3) with element type <code>char</code>.
+
+    <ins>
+      A <em>string literal operator template</em> is a literal operator template
+      whose <em>template-parameter-list</em> comprises
+      a type <em>template-parameter</em> <em>C</em> followed by a non-type template
+      parameter pack with element type <em>C</em>.
+
+      The declaration of a literal operator template shall have an empty
+      <em>parameter-declaration-clause</em> and shall declare either a numeric literal
+      operator template or a string literal operator template.
+    </ins>
+  </blockquote>
+
+  <h3><a name="specification/basic_string_literal">Compile-time string template</a></h3>
+
+<!--
+  <p>
+    Insert clause into [string.classes] (21.3)
+  </p>
+
+  <blockquote class="stdins"><p>
+    The header <code>&lt;string_literal&gt;</code> defines the <code>basic_string_literal</code> class template for representing <code>constexpr</code> sequences of char-like objects and four typedefs, <code>string_literal</code>, <code>u16string_literal</code>, <code>u32string_literal</code>, and <code>wstring_literal</code>, that name the specializations <code>basic_string_literal&lt;char, char...&gt;</code>, <code>basic_string_literal&lt;char16_t&gt;</code>, <code>basic_string_literal&lt;char32_t&gt;</code>, and <code>basic_string_literal&lt;wchar_t&gt;</code>, respectively.
+  </p></blockquote>
+-->
+  <p style="background-color:#FFFF99;">
+  [<i>RFC:</i> Put in the string header or a new header (string_literal)? &mdash;<i>end RFC</i>]
+  </p>
+
+<!--
+  <p>
+    Insert a <strong>Header <code>&lt;string_literal&gt;</code> synopsis</strong> into [string.classes] (21.3) after the <strong>Header <code>&lt;string&gt;</code> synopsis</strong>
+  </p>
+-->
+  <p>
+    Edit [string.classes] (21.3)/1 as follows:
+  </p>
+
+  <blockquote class="std">
+
+    The header <code>&lt;string&gt;</code> defines the <code>basic_string</code> class template for manipulating varying-length sequences of char-like objects and four typedefs, <code>string</code>, <code>u16string</code>, <code>u32string</code>, and <code>wstring</code>, that name the specializations <code>basic_string&lt;char&gt;</code>, <code>basic_string&lt;char16_t&gt;</code>, <code>basic_string&lt;char32_t&gt;</code>, and <code>basic_string&lt;wchar_t&gt;</code>, respectively.
+    <ins> The header <code>&lt;string&gt;</code> also defines the <code>basic_string_literal</code> class template for manipulating compile-time sequences of char-like objects and four typedefs, <code>string_literal</code>, <code>u16string_literal</code>, <code>u32string_literal</code>, and <code>wstring_literal</code>, that name the specializations <code>basic_string_literal&lt;char&gt;</code>, <code>basic_string_literal&lt;char16_t&gt;</code>, <code>basic_string_literal&lt;char32_t&gt;</code>, and <code>basic_string_literal&lt;wchar_t&gt;</code>, respectively.</ins>
+
+    <p>
+      &nbsp;&nbsp;&nbsp;<strong>Header <code>&lt;string&gt;</code> synopsis</strong><br/>
+
+      <pre><code>    #include &lt;initializer_list&gt;
+
+    namespace std {
+
+      // 21.2, character traits:
+      template&lt;class charT&gt; struct char_traits;
+      template &lt;&gt; struct char_traits&lt;char&gt;;
+      template &lt;&gt; struct char_traits&lt;char16_t&gt;;
+      template &lt;&gt; struct char_traits&lt;wchar_t&gt;;
+
+      // 21.4, basic_string:
+      template&lt;class charT&gt;, class traits = char_traits&lt;charT&gt;,
+        class Allocator = allocator&lt;charT&gt; &gt;
+          class basic_string;
+<ins>
+      // 21.5, basic_string_literal:
+      template&lt;class charT&gt;, class traits = char_traits&lt;charT&gt;,
+        charT... Chars&gt;
+          class basic_string_literal;
+</ins>
+      template&lt;class charT, class traits, class Allocator&gt;
+        basic_string&lt;charT,traits,Allocator&gt;
+          operator+(const basic_string&lt;charT,traits,Allocator&gt;&amp; lhs,
+                    const basic_string&lt;charT,traits,Allocator&gt;&amp; rhs);
+      template&lt;class charT, class traits, class Allocator&gt;
+        basic_string&lt;charT,traits,Allocator&gt;
+          operator+(basic_string&lt;charT,traits,Allocator&gt;&amp; lhs,
+                    const basic_string&lt;charT,traits,Allocator&gt;&amp; rhs);
+      template&lt;class charT, class traits, class Allocator&gt;
+        basic_string&lt;charT,traits,Allocator&gt;
+          operator+(const basic_string&lt;charT,traits,Allocator&gt;&amp; lhs,
+                    basic_string&lt;charT,traits,Allocator&gt;&amp; rhs);
+      template&lt;class charT, class traits, class Allocator&gt;
+        basic_string&lt;charT,traits,Allocator&gt;
+          operator+(basic_string&lt;charT,traits,Allocator&gt;&amp; lhs,
+                    basic_string&lt;charT,traits,Allocator&gt;&amp; rhs);
+      template&lt;class charT, class traits, class Allocator&gt;
+        basic_string&lt;charT,traits,Allocator&gt;
+          operator+(const charT* lhs,
+                    const basic_string&lt;charT,traits,Allocator&gt;&amp; rhs);
+      template&lt;class charT, class traits, class Allocator&gt;
+        basic_string&lt;charT,traits,Allocator&gt;
+          operator+(const charT* lhs,
+                    basic_string&lt;charT,traits,Allocator&gt;&amp; rhs);
+      template&lt;class charT, class traits, class Allocator&gt;
+        basic_string&lt;charT,traits,Allocator&gt;
+          operator+(charT lhs, const basic_string&lt;charT,traits,Allocator&gt;&amp; rhs);
+      template&lt;class charT, class traits, class Allocator&gt;
+        basic_string&lt;charT,traits,Allocator&gt;
+          operator+(charT lhs, basic_string&lt;charT,traits,Allocator&gt;&amp; rhs);
+      template&lt;class charT, class traits, class Allocator&gt;
+        basic_string&lt;charT,traits,Allocator&gt;
+          operator+(const basic_string&lt;charT,traits,Allocator&gt;&amp; lhs,
+                    const charT* rhs);
+      template&lt;class charT, class traits, class Allocator&gt;
+        basic_string&lt;charT,traits,Allocator&gt;
+          operator+(basic_string&lt;charT,traits,Allocator&gt;&amp; lhs,
+                    const charT* rhs);
+      template&lt;class charT, class traits, class Allocator&gt;
+        basic_string&lt;charT,traits,Allocator&gt;
+          operator+(const basic_string&lt;charT,traits,Allocator&gt;&amp; lhs, charT rhs);
+      template&lt;class charT, class traits, class Allocator&gt;
+        basic_string&lt;charT,traits,Allocator&gt;
+          operator+(basic_string&lt;charT,traits,Allocator&gt;&amp; lhs, charT rhs);
+<ins>     template&lt;class charT, class traits, charT... LhsChars, charT... RhsChars&gt;;
+        constexpr basic_string_literal&lt;charT,traits,LhsChars...,RhsChars...&gt;
+          operator+ (const basic_string_literal&lt;charT,traits,LhsChars...&gt;&amp; lhs,
+                     const basic_string_literal&lt;charT,traits,RhsChars...&gt;&amp; rhs);
+      template&lt;class charT, class traits, class Allocator, charT... LhsChars&gt;;
+        basic_string&lt;charT,traits,Allocator&gt;
+          operator+ (const basic_string_literal&lt;charT,traits,LhsChars...&gt;&amp; lhs,
+                     const basic_string&lt;charT,traits,Allocator&gt;&amp; rhs);
+      template&lt;class charT, class traits, class Allocator, charT... LhsChars&gt;;
+        basic_string&lt;charT,traits,Allocator&gt;
+          operator+ (const basic_string_literal&lt;charT,traits,LhsChars...&gt;&amp; lhs,
+                     basic_string&lt;charT,traits,Allocator&gt;&amp; rhs);
+      template&lt;class charT, class traits, class Allocator, charT... LhsChars&gt;;
+        basic_string&lt;charT,traits,Allocator&gt;
+          operator+ (const basic_string_literal&lt;charT,traits,LhsChars...&gt;&amp; lhs,
+                     const charT* rhs);
+      template&lt;class charT, class traits, class Allocator, charT... LhsChars&gt;;
+        basic_string&lt;charT,traits,Allocator&gt;
+          operator+ (const basic_string_literal&lt;charT,traits,LhsChars...&gt;&amp; lhs,
+                     charT rhs);
+      template&lt;class charT, class traits, class Allocator, charT... RhsChars&gt;;
+        basic_string&lt;charT,traits,Allocator&gt;
+          operator+ (const basic_string&lt;charT,traits,Allocator&gt;&amp; lhs,
+                     const basic_string_literal&lt;charT,traits,LhsChars...&gt;&amp; rhs);
+      template&lt;class charT, class traits, class Allocator, charT... RhsChars&gt;;
+        basic_string&lt;charT,traits,Allocator&gt;
+          operator+ (basic_string&lt;charT,traits,Allocator&gt;&amp; lhs,
+                     const basic_string_literal&lt;charT,traits,LhsChars...&gt;&amp; rhs);</ins>
+
+      template&lt;class charT, class traits, class Allocator&gt;
+        bool operator==(const basic_string&lt;charT,traits,Allocator&gt;& lhs,
+                        const basic_string&lt;charT,traits,Allocator&gt;& rhs) noexcept;
+      template&lt;class charT, class traits, class Allocator&gt;
+        bool operator==(const charT* lhs,
+                        const basic_string&lt;charT,traits,Allocator&gt;& rhs);
+      template&lt;class charT, class traits, class Allocator&gt;
+        bool operator==(const basic_string&lt;charT,traits,Allocator&gt;& lhs,
+                        const charT* rhs);
+<ins>     template&lt;class charT, class traits, charT... LhsChars, charT... RhsChars&gt;;
+        constexpr bool operator== (const basic_string_literal&lt;charT,traits,LhsChars...&gt;&amp; lhs,
+                                   const basic_string_literal&lt;charT,traits,RhsChars...&gt;&amp; rhs);
+      template&lt;class charT, class traits, class Allocator, charT... LhsChars&gt;;
+        bool operator== (const basic_string_literal&lt;charT,traits,LhsChars...&gt;&amp; lhs,
+                         const basic_string&lt;charT,traits,Allocator&gt;&amp; rhs);
+      template&lt;class charT, class traits, charT... LhsChars&gt;;
+        bool operator== (const basic_string_literal&lt;charT,traits,LhsChars...&gt;&amp; lhs,
+                         const charT* rhs);
+      template&lt;class charT, class traits, class Allocator, charT... RhsChars&gt;;
+        bool operator== (const basic_string&lt;charT,traits,Allocator&gt;&amp; lhs,
+                         const basic_string_literal&lt;charT,traits,RhsChars...&gt;&amp; rhs);
+      template&lt;class charT, class traits, charT... RhsChars&gt;;
+        bool operator== (const charT* lhs,
+                         const basic_string_literal&lt;charT,traits,RhsChars...&gt;&amp; rhs);</ins>
+      template&lt;class charT, class traits, class Allocator&gt;
+        bool operator!=(const basic_string&lt;charT,traits,Allocator&gt;& lhs,
+                        const basic_string&lt;charT,traits,Allocator&gt;& rhs) noexcept;
+      template&lt;class charT, class traits, class Allocator&gt;
+        bool operator!=(const charT* lhs,
+                        const basic_string&lt;charT,traits,Allocator&gt;& rhs);
+      template&lt;class charT, class traits, class Allocator&gt;
+        bool operator!=(const basic_string&lt;charT,traits,Allocator&gt;& lhs,
+                        const charT* rhs);
+<ins>     template&lt;class charT, class traits, charT... LhsChars, charT... RhsChars&gt;;
+        constexpr bool operator!= (const basic_string_literal&lt;charT,traits,LhsChars...&gt;&amp; lhs,
+                                   const basic_string_literal&lt;charT,traits,RhsChars...&gt;&amp; rhs);
+      template&lt;class charT, class traits, class Allocator, charT... LhsChars&gt;;
+        bool operator!= (const basic_string_literal&lt;charT,traits,LhsChars...&gt;&amp; lhs,
+                         const basic_string&lt;charT,traits,Allocator&gt;&amp; rhs);
+      template&lt;class charT, class traits, charT... LhsChars&gt;;
+        bool operator!= (const basic_string_literal&lt;charT,traits,LhsChars...&gt;&amp; lhs,
+                         const charT* rhs);
+      template&lt;class charT, class traits, class Allocator, charT... RhsChars&gt;;
+        bool operator!= (const basic_string&lt;charT,traits,Allocator&gt;&amp; lhs,
+                         const basic_string_literal&lt;charT,traits,RhsChars...&gt;&amp; rhs);
+      template&lt;class charT, class traits, charT... RhsChars&gt;;
+        bool operator!= (const charT* lhs,
+                         const basic_string_literal&lt;charT,traits,RhsChars...&gt;&amp; rhs);</ins>
+
+      template&lt;class charT, class traits, class Allocator&gt;
+        bool operator&lt; (const basic_string&lt;charT,traits,Allocator&gt;&amp; lhs,
+                        const basic_string&lt;charT,traits,Allocator&gt;&amp; rhs) noexcept;
+      template&lt;class charT, class traits, class Allocator&gt;
+        bool operator&lt; (const basic_string&lt;charT,traits,Allocator&gt;&amp; lhs,
+                        const charT* rhs);
+      template&lt;class charT, class traits, class Allocator&gt;
+        bool operator&lt; (const charT* lhs,
+                        const basic_string&lt;charT,traits,Allocator&gt;&amp; rhs);
+<ins>      template&lt;class charT, class traits, charT... LhsChars, charT... RhsChars&gt;
+        constexpr bool operator&lt; (const basic_string_literal&lt;charT,traits,LhsChars...&gt;&amp; lhs,
+                                  const basic_string_literal&lt;charT,traits,RhsChars...&gt;&amp; rhs);
+      template&lt;class charT, class traits, class Allocator, charT... LhsChars&gt;
+        bool operator&lt; (const basic_string_literal&lt;charT,traits,LhsChars...&gt;&amp; lhs,
+                        const basic_string&lt;charT,traits,Allocator&gt;&amp; rhs) noexcept;
+      template&lt;class charT, class traits, class Allocator, charT... RhsChars&gt;
+        bool operator&lt; (const basic_string&lt;charT,traits,Allocator&gt;&amp; lhs,
+                        const basic_string_literal&lt;charT,traits,RhsChars...&gt;&amp; rhs);
+      template&lt;class charT, class traits, charT... LhsChars&gt;
+        bool operator&lt; (const basic_string_literal&lt;charT,traits,LhsChars...&gt;&amp; lhs,
+                        const charT* rhs);
+      template&lt;class charT, class traits, charT... RhsChars&gt;
+        bool operator&lt; (const charT* lhs,
+                        const basic_string_literal&lt;charT,traits,RhsChars...&gt;&amp; rhs);</ins>
+      template&lt;class charT, class traits, class Allocator&gt;
+        bool operator&gt; (const basic_string&lt;charT,traits,Allocator&gt;&amp; lhs,
+                        const basic_string&lt;charT,traits,Allocator&gt;&amp; rhs) noexcept;
+      template&lt;class charT, class traits, class Allocator&gt;
+        bool operator&gt; (const basic_string&lt;charT,traits,Allocator&gt;&amp; lhs,
+                        const charT* rhs);
+      template&lt;class charT, class traits, class Allocator&gt;
+        bool operator&gt; (const charT* lhs,
+                        const basic_string&lt;charT,traits,Allocator&gt;&amp; rhs);
+<ins>      template&lt;class charT, class traits, charT... LhsChars, charT... RhsChars&gt;
+        constexpr bool operator&gt; (const basic_string_literal&lt;charT,traits,LhsChars...&gt;&amp; lhs,
+                                  const basic_string_literal&lt;charT,traits,RhsChars...&gt;&amp; rhs);
+      template&lt;class charT, class traits, class Allocator, charT... LhsChars&gt;
+        bool operator&gt; (const basic_string_literal&lt;charT,traits,LhsChars...&gt;&amp; lhs,
+                        const basic_string&lt;charT,traits,Allocator&gt;&amp; rhs) noexcept;
+      template&lt;class charT, class traits, class Allocator, charT... RhsChars&gt;
+        bool operator&gt; (const basic_string&lt;charT,traits,Allocator&gt;&amp; lhs,
+                        const basic_string_literal&lt;charT,traits,RhsChars...&gt;&amp; rhs);
+      template&lt;class charT, class traits, charT... LhsChars&gt;
+        bool operator&gt; (const basic_string_literal&lt;charT,traits,LhsChars...&gt;&amp; lhs,
+                        const charT* rhs);
+      template&lt;class charT, class traits, charT... RhsChars&gt;
+        bool operator&gt; (const charT* lhs,
+                        const basic_string_literal&lt;charT,traits,RhsChars...&gt;&amp; rhs);</ins>
+
+      template&lt;class charT, class traits, class Allocator&gt;
+        bool operator&lt;= (const basic_string&lt;charT,traits,Allocator&gt;&amp; lhs,
+                         const basic_string&lt;charT,traits,Allocator&gt;&amp; rhs) noexcept;
+      template&lt;class charT, class traits, class Allocator&gt;
+        bool operator&lt;= (const basic_string&lt;charT,traits,Allocator&gt;&amp; lhs,
+                         const charT* rhs);
+      template&lt;class charT, class traits, class Allocator&gt;
+        bool operator&lt;= (const charT* lhs,
+                         const basic_string&lt;charT,traits,Allocator&gt;&amp; rhs);
+<ins>      template&lt;class charT, class traits, charT... LhsChars, charT... RhsChars&gt;
+        constexpr bool operator&lt;= (const basic_string_literal&lt;charT,traits,LhsChars...&gt;&amp; lhs,
+                                   const basic_string_literal&lt;charT,traits,RhsChars...&gt;&amp; rhs);
+      template&lt;class charT, class traits, class Allocator, charT... LhsChars&gt;
+        bool operator&lt;= (const basic_string_literal&lt;charT,traits,LhsChars...&gt;&amp; lhs,
+                         const basic_string&lt;charT,traits,Allocator&gt;&amp; rhs) noexcept;
+      template&lt;class charT, class traits, class Allocator, charT... RhsChars&gt;
+        bool operator&lt;= (const basic_string&lt;charT,traits,Allocator&gt;&amp; lhs,
+                         const basic_string_literal&lt;charT,traits,RhsChars...&gt;&amp; rhs);
+      template&lt;class charT, class traits, charT... LhsChars&gt;
+        bool operator&lt;= (const basic_string_literal&lt;charT,traits,LhsChars...&gt;&amp; lhs,
+                         const charT* rhs);
+      template&lt;class charT, class traits, charT... RhsChars&gt;
+        bool operator&lt;= (const charT* lhs,
+                         const basic_string_literal&lt;charT,traits,RhsChars...&gt;&amp; rhs);</ins>
+      template&lt;class charT, class traits, class Allocator&gt;
+        bool operator&gt;= (const basic_string&lt;charT,traits,Allocator&gt;&amp; lhs,
+                         const basic_string&lt;charT,traits,Allocator&gt;&amp; rhs) noexcept;
+      template&lt;class charT, class traits, class Allocator&gt;
+        bool operator&gt;= (const basic_string&lt;charT,traits,Allocator&gt;&amp; lhs,
+                         const charT* rhs);
+      template&lt;class charT, class traits, class Allocator&gt;
+        bool operator&gt;= (const charT* lhs,
+                         const basic_string&lt;charT,traits,Allocator&gt;&amp; rhs);
+<ins>      template&lt;class charT, class traits, charT... LhsChars, charT... RhsChars&gt;
+        constexpr bool operator&gt;= (const basic_string_literal&lt;charT,traits,LhsChars...&gt;&amp; lhs,
+                                   const basic_string_literal&lt;charT,traits,RhsChars...&gt;&amp; rhs);
+      template&lt;class charT, class traits, class Allocator, charT... LhsChars&gt;
+        bool operator&gt;= (const basic_string_literal&lt;charT,traits,LhsChars...&gt;&amp; lhs,
+                         const basic_string&lt;charT,traits,Allocator&gt;&amp; rhs) noexcept;
+      template&lt;class charT, class traits, class Allocator, charT... RhsChars&gt;
+        bool operator&gt;= (const basic_string&lt;charT,traits,Allocator&gt;&amp; lhs,
+                         const basic_string_literal&lt;charT,traits,RhsChars...&gt;&amp; rhs);
+      template&lt;class charT, class traits, charT... LhsChars&gt;
+        bool operator&gt;= (const basic_string_literal&lt;charT,traits,LhsChars...&gt;&amp; lhs,
+                         const charT* rhs);
+      template&lt;class charT, class traits, charT... RhsChars&gt;
+        bool operator&gt;= (const charT* lhs,
+                         const basic_string_literal&lt;charT,traits,RhsChars...&gt;&amp; rhs);</ins>
+  
+      // 21.4.8.8, swap:
+      template&lt;class charT, class traits, class Allocator>
+        void swap(basic_string&lt;charT,traits,Allocator&gt;&amp; lhs,
+                  basic_string&lt;charT,traits,Allocator&gt;&amp; rhs);
+
+      // 21.4.8.9, inserters and extractors:
+      template&lt;class charT, class traits, class Allocator&gt;
+        basic_istream&lt;charT,traits&gt;&amp;
+          operator&gt;&gt;(basic_istream&lt;charT,traits&gt;&amp; is,
+                     basic_string&lt;charT,traits,Allocator&gt;&amp; str);
+      template&lt;class charT, class traits, class Allocator&gt;
+        basic_ostream&lt;charT, traits&gt;&amp;
+          operator&lt;&lt;(basic_ostream&lt;charT, traits&gt;&amp; os,
+                     const basic_string&lt;charT,traits,Allocator&gt;&amp; str);
+<ins>      template&lt;class charT, class traits, charT... Chars&gt;
+        basic_ostream&lt;charT, traits&gt;&amp;
+          operator&lt;&lt;(basic_ostream&lt;charT, traits&gt;&amp; os,
+                     const basic_string_literal&lt;charT,traits,Chars...&gt;&amp; str);</ins>
+      template&lt;class charT, class traits, class Allocator&gt;
+        basic_istream&lt;charT,traits&gt;&amp;
+          getline(basic_istream&lt;charT,traits&gt;&amp; is,
+                  basic_string&lt;charT,traits,Allocator&gt;&amp; str,
+                  charT delim);
+      template&lt;class charT, class traits, class Allocator&gt;
+        basic_istream&lt;charT,traits&gt;&amp;
+          getline(basic_istream&lt;charT,traits&gt;&amp;&amp; is,
+                  basic_string&lt;charT,traits,Allocator&gt;&amp; str,
+                  charT delim);
+      template&lt;class charT, class traits, class Allocator&gt;
+        basic_istream&lt;charT,traits&gt;&amp;
+          getline(basic_istream&lt;charT,traits&gt;&amp; is,
+                  basic_string&lt;charT,traits,Allocator&gt;&amp; str);
+      template&lt;class charT, class traits, class Allocator&gt;
+        basic_istream&lt;charT,traits&gt;&amp;
+          getline(basic_istream&lt;charT,traits&gt;&amp;&amp; is,
+                  basic_string&lt;charT,traits,Allocator&gt;&amp; str);
+
+  }
+      </code></pre>
+    </p>
+
+
+  </blockquote>
+
+
+  <p style="background-color:#FFFF99;">
+  [<i>RFC:</i> This section still needs lots of work. There are implementation details in here for one, and we might consider a smaller interface at first since some of these operations might be too expensive. Also, should this be based on char_traits&lt;charT&gt; as well? &mdash;<i>end RFC</i>]
+  </p>
+
+  <blockquote class="stdins"><p>
+
+    <pre class="example">
+    <code>template &lt;typename charT, charT... Chars&gt;
+    class basic_string_literal;
+
+    template &lt;typename charT, charT... Chars&gt;
+    constexpr basic_string_literal&lt;charT, Chars...&gt; operator""S();
+
+    template &lt;typename charT, charT... Chars&gt;
+    class basic_string_literal {
+    friend constexpr basic_string_literal operator""S&lt;charT, HeadChar, TailChars...&gt; ();
+
+    public:
+      static constexpr const charT data_[] = { HeadChar, TailChars..., '\0' };
+
+    private:
+      constexpr basic_string_literal() = default;
+
+    public:
+
+      using value_type = charT;
+      using size_type = std::size_t;
+      using difference_type = std::size_t;
+      // iterator types???
+
+      using tail_type = basic_string_literal&lt;charT&gt;;
+      //using reverse_type = basic_string_literal&lt;charT&gt;;
+
+      // Size-related functions
+      constexpr size_type size () const;
+      constexpr size_type length () const;
+      constexpr bool empty () const;
+
+      // Element accessor functions
+      constexpr charT operator[] (size_type pos) const;
+      template &lt;size_type Index&gt; constexpr charT at () const;
+      constexpr charT at (size_type pos) const;
+      constexpr charT back () const;
+      constexpr charT front () const;
+
+      // Search functions
+      template &lt;charT... OtherChars&gt;
+      constexpr size_type find (const basic_string_literal&lt;charT, OtherChars...&gt;&amp; str, size_type pos = 0) const;
+      constexpr size_type find (const charT* s, size_type pos, size_type count) const;
+      constexpr size_type find (const charT* s, size_type pos = 0) const;
+      constexpr size_type find (charT ch, size_type pos = 0) const;
+      
+      template &lt;charT... OtherChars&gt;
+      constexpr size_type rfind (const basic_string_literal&lt;charT, OtherChars...&gt;&amp; str, std::size_t pos = sizeof...(Chars)) const;
+      constexpr size_type rfind (const charT* s, size_type pos, size_type count) const;
+      constexpr size_type rfind (const charT* s, size_type pos = sizeof...(Chars)) const;
+      constexpr size_type rfind (charT ch, size_t pos = sizeof...(Chars)) const;
+
+      template &lt;charT... OtherChars&gt;
+      constexpr size_type find_first_of (const basic_string_literal&lt;charT, OtherChars...&gt;&amp; str, size_type pos = 0) const;
+      constexpr size_type find_first_of (const charT* s, size_type pos, size_type count) const;
+      constexpr size_type find_first_of (const charT* s, size_type pos = 0) const;
+      constexpr size_type find_first_of (charT ch, size_type pos = 0) const;
+
+      template &lt;charT... OtherChars&gt;
+      constexpr size_type find_first_not_of (const basic_string_literal&lt;charT, OtherChars...&gt;&amp; str, size_type pos = 0) const;
+      constexpr size_type find_first_not_of (const charT* s, size_type pos, size_type count) const;
+      constexpr size_type find_first_not_of (const charT* s, size_type pos = 0) const;
+      constexpr size_type find_first_not_of (charT ch, size_type pos = 0) const;
+
+      template &lt;charT... OtherChars&gt;
+      constexpr size_type find_last_of (const basic_string_literal&lt;charT, OtherChars...&gt;&amp; str, size_type pos = sizeof...(Chars)) const;
+      constexpr size_type find_last_of (const charT* s, size_type pos, size_type count) const;
+      constexpr size_type find_last_of (const charT* s, size_type pos = sizeof...(Chars)) const;
+      constexpr size_type find_last_of (charT ch, size_t pos = sizeof...(Chars)) const;
+
+      template &lt;charT... OtherChars&gt;
+      constexpr size_type find_last_not_of (const basic_string_literal&lt;charT, OtherChars...&gt;&amp; str, size_type pos = sizeof...(Chars)) const;
+      constexpr size_type find_last_not_of (const charT* s, size_type pos, size_type count) const;
+      constexpr size_type find_last_not_of (const charT* s, size_type pos = sizeof...(Chars)) const;
+      constexpr size_type find_last_not_of (charT ch, size_t pos = sizeof...(Chars)) const;
+     
+      // Substring function
+      /* TODO: return type */ substr (size_type pos = 0, size_type count = std::string::npos) const;
+      /* TODO: this return type might require using a recursive structure */
+      
+      // Comparison functions
+      template &lt;charT... OtherChars&gt;;
+      constexpr int compare (const basic_string_literal&lt;charT, OtherChars...&gt; &amp; other) const;
+      
+      constexpr int compare (const basic_string&amp; str) const;
+      constexpr int compare (size_type pos1, size_type count1, const basic_string&amp; str) const;
+      constexpr int compare (size_type pos1, size_type count1, const basic_string&amp; str,
+                             size_type pos2, size_type count2) const;
+      constexpr int compare (const charT* s) const;
+      constexpr int compare (size_type pos1, size_type count1, const charT* s) const;
+      constexpr int compare (size_type pos1, size_type count1,
+                             const charT* s, size_type count2) const;
+
+      // Conversion functions
+      constexpr const char * c_str () const;
+      constexpr const char * data () const;
+      std::string to_string() const;
+      constexpr operator const char* () const;
+      constexpr long long to_number () const;
+
+    };
+
+    template&lt;typename charT&gt;
+    class basic_string_literal&lt;charT&gt;
+    {
+
+      template &lt;typename charU&gt;
+      friend constexpr basic_string_literal operator ""S&lt;charU&gt;();
+
+    private:
+        static constexpr const charT _data[] = { '\0' };
+
+        constexpr basic_string_literal() = default;
+
+    public:
+
+        using value_type = charT;
+        using size_type = std::size_t;
+        using difference_type = std::size_t;
+        // iterator types???
+
+        using tail_type = basic_string_literal&lt;charT&gt;;
+        //using reverse_type = basic_string_literal&lt;charT&gt;;
+
+        constexpr size_type size() const;
+        constexpr size_type length() const;
+        constexpr bool empty() const;
+
+        // There are no accessors for empty strings
+
+        // There are no search functions for empty strings
+
+        // There are no substring functions for empty strings
+
+        template &lt;charT... OtherChars&gt;
+        constexpr int compare(const basic_string_literal&lt;charT, OtherChars...&gt;& other) const;
+        constexpr int compare(const basic_string&lt;charT&gt;& str) const;
+        constexpr int compare(std::size_t pos1, std::size_t count1, const basic_string&lt;charT&gt;& str) const;
+        constexpr int compare(std::size_t pos1, std::size_t count1, const basic_string&lt;charT&gt;& str, std::size_t pos2, std::size_t count2) const;
+        constexpr int compare(const charT* s) const;
+        constexpr int compare(std::size_t pos1, std::size_t count1, const charT* s) const;
+        constexpr int compare(std::size_t pos1, std::size_t count1, const charT* s, std::size_t count2) const;
+
+        constexpr const char * c_str() const;
+        constexpr const char * data() const;
+        std::string to_string() const;
+        constexpr size_type to_number() const;
+        constexpr operator const char* () const;
+        operator std::string() const;
+    };
+
+    template &lt;typename charT, charT... Chars&gt;
+    constexpr basic_string_literal&lt;charT, Chars...&gt; operator""S()
+    {
+        return basic_string_literal&lt;charT, Chars...&gt;();
+    }
+
+    // Concatenation
+    template &lt;typename charT, charT... LeftChars, charT... RightChars&gt;;
+    inline constexpr auto operator+ (const basic_string_literal&lt;charT, LeftChars...&gt;&amp; l,
+                                     const basic_string_literal&lt;charT, RightChars...&gt;&amp; r)
+    -&gt; basic_string_literal&lt;charT, LeftChars..., RightChars...&gt;;
+
+    // Relational operators
+    template &lt;typename charT, charT... OtherChars&gt;;
+    constexpr bool operator== (const basic_string_literal&lt;charT, OtherChars...&gt;&amp; lhs, 
+                     const basic_string_literal&lt;charT, OtherChars...&gt;&amp; rhs);
+    template &lt;typename charT, charT... OtherChars&gt;;
+    constexpr bool operator!= (const basic_string_literal&lt;charT, OtherChars...&gt;&amp; lhs, 
+                     const basic_string_literal&lt;charT, OtherChars...&gt;&amp; rhs);
+    template &lt;typename charT, charT... OtherChars&gt;;
+    constexpr bool operator&lt; (const basic_string_literal&lt;charT, &gt;OtherChars...&gt;&amp; lhs, 
+                    const basic_string_literal&lt;charT, OtherChars...&gt;&amp; rhs);
+    template &lt;typename charT, charT... OtherChars&gt;;
+    constexpr bool operator&lt;= (const basic_string_literal&lt;charT, OtherChars...&gt;&amp; lhs, 
+                     const basic_string_literal&lt;charT, OtherChars...&gt;&amp; rhs);
+    template &lt;typename charT, charT... OtherChars&gt;;
+    constexpr bool operator&gt; (const basic_string_literal&lt;charT, OtherChars...&gt;&amp; lhs, 
+                    const basic_string_literal&lt;charT, OtherChars...&gt;&amp; rhs);
+    template &lt;typename charT, charT... OtherChars&gt;;
+    constexpr bool operator&gt;= (const basic_string_literal&lt;charT, OtherChars...&gt;&amp; lhs, 
+                     const basic_string_literal&lt;charT, OtherChars...&gt;&amp; rhs);
+
+    template &lt;typename charT, charT... OtherChars&gt;;
+    constexpr bool operator== (const charT* lhs, const basic_string_literal&lt;charT, OtherChars...&gt;&amp; rhs);
+    template &lt;typename charT, charT... OtherChars&gt;;
+    constexpr bool operator== (const basic_string_literal&lt;charT, OtherChars...&gt;&amp; lhs, const charT* rhs);
+    template &lt;typename charT, charT... OtherCharsbasic_string_literal&lt;charT, OtherChars...&gt;&amp; 
+    constexpr bool operator!= (const charT* lhs, const basic_string_literal&lt;charT, OtherChars...&gt;&amp; rhs);
+    template &lt;typename charT, charT... OtherChars&gt;;
+    constexpr bool operator!= (const basic_string_literal&lt;charT, OtherChars...&gt;&amp; lhs, const charT* rhs);
+    template &lt;typename charT, charT... OtherChars&gt;;
+    constexpr bool operator&lt; (const charT* lhs, const basic_string_literal&lt;charT, OtherChars...&gt;&amp; rhs);
+    template &lt;typename charT, charT... OtherChars&gt;;
+    constexpr bool operator&lt; (const basic_string_literal&lt;charT, OtherChars...&gt;&amp; lhs,  const charT* rhs);
+    template &lt;typename charT, charT... OtherChars&gt;;
+    constexpr bool operator&lt;= (const charT* lhs, const basic_string_literal&lt;charT, OtherChars...&gt;&amp; rhs);
+    template &lt;typename charT, charT... OtherChars&gt;;
+    constexpr bool operator&lt;&lt;= (const basic_string&lt;charT,Traits,Alloc&gt;&amp; lhs, const charT* rhs);
+    template &lt;typename charT, charT... OtherChars&gt;;
+    constexpr bool operator&gt; (const charT* lhs, const basic_string&lt;charT,Traits,Alloc&gt;&amp; rhs);
+    template &lt;typename charT, charT... OtherChars&gt;;
+    constexpr bool operator&gt; (const basic_string&lt;charT,Traits,Alloc&gt;&amp; lhs, const charT* lhs);
+    template &lt;typename charT, charT... OtherChars&gt;;
+    constexpr bool operator&gt;= (const charT* lhs, const basic_string&lt;charT,Traits,Alloc&gt;&amp; rhs);
+    template &lt;typename CharT, class traits, class Alloc&gt;
+    constexpr bool operator&gt;= (const basic_string&lt;charT,Traits,Alloc&gt;&amp; lhs, const charT* rhs);
+
+    // Stream inseration operator
+    template &lt;typename charT, charT... Chars&gt;
+    inline std::ostream&amp; operator&lt;&lt; (std::ostream&amp; os, const basic_string_literal&lt;charT, Chars...&gt;&amp; str);</code>
+    </pre>
+
+  </p></blockquote>
+
+  <h3><a name="specification/basic_string_literal_udl">UDL operator template for <code>basic_string_literal</code> template</a></h3>
+
+  <blockquote class="stdins"><p>
+    <pre>
+    <code>
+    template &lt;typename charT, charT... Chars&gt;
+    inline constexpr basic_string_literal&lt;charT, Chars...&gt; operator""S ();
+    </code>
+    </pre>
+  </p></blockquote>
+
+
+  <h2><a name="going_forward">VII. Acknowledgements</a></h2>
+
+  <p style="background-color:#FFFF99;">
+  [<i>TODO:</i> Fill this out &mdash;<i>end TODO</i>]
+  </p>
+
+  <h2><a name="acknowledgements">VIII. References</a></h2>
+
+  <p style="background-color:#FFFF99;">
+  [<i>TODO:</i> There's got to be a better way to document these. &mdash;<i>end TODO</i>]
+  </p>
+
+  <div>[1] <a href="http://cpp-next.com/archive/2012/10/using-strings-in-c-template-metaprograms/">Using strings in C++ template metaprograms </a></div>
+  <div>[2] <a href="http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2013/n3599.html">Literal operator templates for strings</a> </div>
+</a></div>
+
+</body>
+</html>

@@ -1,3 +1,7 @@
+// compile with:
+//
+//E:\cxx_snippets\string_literal>clang++.exe -std=c++1y string_literal.cpp -Wno-gnu-string-literal-operator-template
+
 
 //char * gets(char *); // works around silly C++11/14 library issue on ToT clang
 
@@ -11,59 +15,60 @@ namespace std {
 #pragma region Some forward declarations
 
 template <typename charT, charT... Chars>
-class literal_string;
+class basic_string_literal;
 
 template <typename charT, charT... Chars>
-constexpr literal_string<charT, Chars...> operator"" _cs();
+constexpr basic_string_literal<charT, Chars...> operator"" _S();
 
 #pragma endregion
 
 #pragma region Some helper types
 
 template <size_t N, typename charT, charT HeadChar, charT... TailChars>
-struct literal_string_indexer
+struct basic_string_literal_indexer
 {
     static_assert(N < sizeof...(TailChars) + 1, "Index is too big");
-    using type = typename literal_string_indexer<N - 1, charT, TailChars...>::type;
+    using type = typename basic_string_literal_indexer<N - 1, charT, TailChars...>::type;
 };
 
 template <typename charT, charT HeadChar, charT... TailChars>
-struct literal_string_indexer<0, charT, HeadChar, TailChars...>
+struct basic_string_literal_indexer<0, charT, HeadChar, TailChars...>
 {
-    using type = literal_string<charT, HeadChar, TailChars...>;
+    using type = basic_string_literal<charT, HeadChar, TailChars...>;
 };
 
-/* TODO: literal_string_reverser - Might need name-able parameter packs... */
+// TODO: basic_string_literal_reverser - Might need name-able parameter packs... 
 
 #pragma endregion
 
 
 template <typename charT, char HeadChar, char... TailChars>
-class literal_string<charT, HeadChar, TailChars...>
+struct basic_string_literal<charT, HeadChar, TailChars...>
 {
 public:
     static constexpr const charT _data[] = { HeadChar, TailChars..., '\0' };
 
 #pragma region Friends and constructors (broken)
 
-/*
-friend constexpr literal_string<charT, HeadChar, TailChars...> operator"" <charT, HeadChar, TailChars...> _cs();
+//    template <typename charU, charU... CharUs>
+//    friend constexpr basic_string_literal operator""_S <charU, CharUs...>();
+//
+//private:
+    constexpr basic_string_literal() = default;
 
-private:
-    literal_string() = default;
-*/
 #pragma endregion
 
 public:
     #pragma region Type aliases & static values
 
+    using type = basic_string_literal;
     using value_type = charT;
     using size_type = std::size_t;
     using difference_type = std::ptrdiff_t;
     // iterator types???
 
-    using tail_type = literal_string<charT, TailChars...>;
-    //using reverse_type = literal_string_reverser<charT, HeadChar, TailChars...>::type
+    using tail_type = basic_string_literal<charT, TailChars...>;
+    //using reverse_type = basic_string_literal_reverser<charT, HeadChar, TailChars...>::type
 
     //const static charT head_value = HeadChar;
     const static size_type size_value = sizeof...(TailChars) + 1;
@@ -116,7 +121,7 @@ public:
     #pragma region Searching
 
     template <charT... LookForChars>
-    constexpr size_type find(const literal_string<charT, LookForChars...>& str, size_type pos = 0) const
+    constexpr size_type find(const basic_string_literal<charT, LookForChars...>& str, size_type pos = 0) const
     {
         //static_assert(sizeof...(Chars) > 0, "find() is not valid for an empty string");
         //static_assert(sizeof...(LookForChars) > 0, "The parameter to find() cannot be an empty string");
@@ -157,12 +162,12 @@ public:
     }
 
     template <charT... LookForChars>
-    constexpr size_type rfind(const literal_string<charT, LookForChars...>& str, size_type pos = size_value) const
+    constexpr size_type rfind(const basic_string_literal<charT, LookForChars...>& str, size_type pos = size_value) const
     {
         //static_assert(sizeof...(Chars) > 0, "find() is not valid for an empty string");
         //static_assert(sizeof...(LookForChars) > 0, "The parameter to find() cannot be an empty string");
 
-        for (/* empty init */; pos > 0; --pos)
+        for ( ; pos > 0; --pos)
         {
             for (size_type j = 0; pos + j < size() && j < str.size(); ++j)
             {
@@ -185,7 +190,7 @@ public:
 
     constexpr size_type rfind(charT ch, size_t pos = size_value - 1) const
     {
-        for (/* empty init */; pos > 0; --pos)
+        for ( ; pos > 0; --pos)
         {
             if (_data[pos - 1] == ch)
                 return pos - 1;
@@ -195,25 +200,25 @@ public:
     }
 
     template <charT... LookForChars>
-    constexpr size_type find_first_of(const literal_string<charT, LookForChars...>& str, size_type pos = 0) const;
+    constexpr size_type find_first_of(const basic_string_literal<charT, LookForChars...>& str, size_type pos = 0) const;
     constexpr size_type find_first_of(const charT* s, size_type pos, size_type count) const;
     constexpr size_type find_first_of(const charT* s, size_type pos = 0) const;
     constexpr size_type find_first_of(charT ch, size_type pos = 0) const;
 
     template <charT... LookForChars>
-    constexpr size_type find_first_not_of(const literal_string<charT, LookForChars...>& str, size_type pos = 0) const;
+    constexpr size_type find_first_not_of(const basic_string_literal<charT, LookForChars...>& str, size_type pos = 0) const;
     constexpr size_type find_first_not_of(const charT* s, size_type pos, size_type count) const;
     constexpr size_type find_first_not_of(const charT* s, size_type pos = 0) const;
     constexpr size_type find_first_not_of(charT ch, size_type pos = 0) const;
 
     template <charT... LookForChars>
-    constexpr size_type find_last_of(const literal_string<charT, LookForChars...>& str, size_type pos = size_value) const;
+    constexpr size_type find_last_of(const basic_string_literal<charT, LookForChars...>& str, size_type pos = size_value) const;
     constexpr size_type find_last_of(const charT* s, size_type pos, size_type count) const;
     constexpr size_type find_last_of(const charT* s, size_type pos = size_value) const;
     constexpr size_type find_last_of(charT ch, size_t pos = size_value) const;
 
     template <charT... LookForChars>
-    constexpr size_type find_last_not_of(const literal_string<charT, LookForChars...>& str, size_type pos = size_value) const;
+    constexpr size_type find_last_not_of(const basic_string_literal<charT, LookForChars...>& str, size_type pos = size_value) const;
     constexpr size_type find_last_not_of(const charT* s, size_type pos, size_type count) const;
     constexpr size_type find_last_not_of(const charT* s, size_type pos = size_value) const;
     constexpr size_type find_last_not_of(charT ch, size_t pos = size_value) const;
@@ -224,9 +229,9 @@ public:
 
     template <size_type Pos>
     constexpr auto substr() const
-        -> typename literal_string_indexer<Pos, charT, HeadChar, TailChars...>::type
+        -> typename basic_string_literal_indexer<Pos, charT, HeadChar, TailChars...>::type
     {
-        return typename literal_string_indexer<Pos, charT, HeadChar, TailChars...>::type();
+        return typename basic_string_literal_indexer<Pos, charT, HeadChar, TailChars...>::type();
     }
 
     constexpr tail_type cdr () const
@@ -239,7 +244,7 @@ public:
     #pragma region Comparison
 
     template <charT... OtherChars>
-    constexpr int compare(const literal_string<charT, OtherChars...>& other) const
+    constexpr int compare(const basic_string_literal<charT, OtherChars...>& other) const
     {
         for (size_type i = 0; i < size() && i < other.size(); ++i)
         {
@@ -327,30 +332,32 @@ public:
 };
 
 template<typename charT>
-class literal_string<charT>
+struct basic_string_literal<charT>
 {
-public:
-    static constexpr const charT _data[] = { '\0' };
 
 #pragma region Friends and constructors (broken)
-/*
-template <typename charU>
-friend constexpr literal_string<charU> operator "" _cs ();
-private:
-    literal_string() = default;
-*/
+
+//template <typename charU>
+//friend constexpr basic_string_literal operator "" _S <charU>();
+//
+//private:
+    static constexpr const charT _data[] = { '\0' };
+
+    constexpr basic_string_literal() = default;
+
 #pragma endregion
 
 public:
     #pragma region Type aliases
 
+    using type = basic_string_literal;
     using value_type = charT;
     using size_type = std::size_t;
     using difference_type = std::size_t;
     // iterator types???
 
-    using tail_type = literal_string<charT>;
-    //using reverse_type = literal_string<charT>;
+    using tail_type = basic_string_literal<charT>;
+    //using reverse_type = basic_string_literal<charT>;
 
     #pragma endregion
 
@@ -382,7 +389,7 @@ public:
     #pragma region Comparison
 
     template <charT... OtherChars>
-    constexpr int compare(const literal_string<charT, OtherChars...>& other) const
+    constexpr int compare(const basic_string_literal<charT, OtherChars...>& other) const
     {
         return other.empty() ? 0 : -1;
     }
@@ -419,7 +426,7 @@ public:
         return _data;
     }
 
-    // TODO: Make this only accessible to other literal_strings
+    // TODO: Make this only accessible to other basic_string_literals
     constexpr size_type to_number() const
     {
         return 0;
@@ -444,9 +451,9 @@ public:
 #pragma region User-defined literal
 
 template <typename charT, charT... Chars>
-constexpr literal_string<charT, Chars...> operator"" _cs()
+constexpr basic_string_literal<charT, Chars...> operator"" _S()
 {
-    return literal_string<charT, Chars...>();
+    return basic_string_literal<charT, Chars...>();
 }
 
 #pragma endregion
@@ -454,11 +461,11 @@ constexpr literal_string<charT, Chars...> operator"" _cs()
 #pragma region Concatenation
 
 template <typename charT, charT... LeftChars, charT... RightChars>
-constexpr auto operator+ (const literal_string<charT, LeftChars...> &l,
-                          const literal_string<charT, RightChars...> &r)
-    -> literal_string<charT, LeftChars..., RightChars...>
+constexpr auto operator+ (const basic_string_literal<charT, LeftChars...> &l,
+                          const basic_string_literal<charT, RightChars...> &r)
+    -> basic_string_literal<charT, LeftChars..., RightChars...>
 {
-    return literal_string<charT, LeftChars..., RightChars...>();
+    return basic_string_literal<charT, LeftChars..., RightChars...>();
 }
 
 #pragma endregion
@@ -466,83 +473,83 @@ constexpr auto operator+ (const literal_string<charT, LeftChars...> &l,
 #pragma region Boolean operators
 
 template <typename charT, charT... LeftChars, charT... RightChars>
-constexpr bool operator== (const literal_string<charT, LeftChars...>& lhs,
-                           const literal_string<charT, RightChars...>& rhs)
+constexpr bool operator== (const basic_string_literal<charT, LeftChars...>& lhs,
+                           const basic_string_literal<charT, RightChars...>& rhs)
 {
     return (lhs.compare(rhs) == 0);
 }
 
 template <typename charT, charT... LeftChars, charT... RightChars>
-constexpr bool operator!= (const literal_string<charT, LeftChars...>& lhs,
-                           const literal_string<charT, RightChars...>& rhs)
+constexpr bool operator!= (const basic_string_literal<charT, LeftChars...>& lhs,
+                           const basic_string_literal<charT, RightChars...>& rhs)
 {
     return (lhs.compare(rhs) != 0);
 }
 
 template <typename charT, charT... LeftChars, charT... RightChars>
-constexpr bool operator< (const literal_string<charT, LeftChars...>& lhs,
-                          const literal_string<charT, RightChars...>& rhs)
+constexpr bool operator< (const basic_string_literal<charT, LeftChars...>& lhs,
+                          const basic_string_literal<charT, RightChars...>& rhs)
 {
     return (lhs.compare(rhs) < 0);
 }
 
 template <typename charT, charT... LeftChars, charT... RightChars>
-constexpr bool operator<= (const literal_string<charT, LeftChars...>& lhs,
-                           const literal_string<charT, RightChars...>& rhs)
+constexpr bool operator<= (const basic_string_literal<charT, LeftChars...>& lhs,
+                           const basic_string_literal<charT, RightChars...>& rhs)
 {
     return (lhs.compare(rhs) <= 0);
 }
 
 template <typename charT, charT... LeftChars, charT... RightChars>
-constexpr bool operator> (const literal_string<charT, LeftChars...>& lhs,
-                          const literal_string<charT, RightChars...>& rhs)
+constexpr bool operator> (const basic_string_literal<charT, LeftChars...>& lhs,
+                          const basic_string_literal<charT, RightChars...>& rhs)
 {
     return (lhs.compare(rhs) > 0);
 }
 
 template <typename charT, charT... LeftChars, charT... RightChars>
-constexpr bool operator>= (const literal_string<charT, LeftChars...>& lhs,
-                           const literal_string<charT, RightChars...>& rhs)
+constexpr bool operator>= (const basic_string_literal<charT, LeftChars...>& lhs,
+                           const basic_string_literal<charT, RightChars...>& rhs)
 {
     return (lhs.compare(rhs) >= 0);
 }
 
 
 template <typename charT, charT... RightChars>
-constexpr bool operator== (const charT* lhs, const literal_string<charT, RightChars...>& rhs);
+constexpr bool operator== (const charT* lhs, const basic_string_literal<charT, RightChars...>& rhs);
 
 template <typename charT, charT... LeftChars>
-constexpr bool operator== (const literal_string<charT, LeftChars...>& lhs, const charT* rhs);
+constexpr bool operator== (const basic_string_literal<charT, LeftChars...>& lhs, const charT* rhs);
 
 template <typename charT, charT... RightChars>
-constexpr bool operator!= (const charT* lhs, const literal_string<charT, RightChars...>& rhs);
+constexpr bool operator!= (const charT* lhs, const basic_string_literal<charT, RightChars...>& rhs);
 
 template <typename charT, charT... LeftChars>
-constexpr bool operator!= (const literal_string<charT, LeftChars...>& lhs, const charT* rhs);
+constexpr bool operator!= (const basic_string_literal<charT, LeftChars...>& lhs, const charT* rhs);
 
 template <typename charT, charT... RightChars>
-constexpr bool operator< (const charT* lhs, const literal_string<charT, RightChars...>& rhs);
+constexpr bool operator< (const charT* lhs, const basic_string_literal<charT, RightChars...>& rhs);
 
 template <typename charT, charT... LeftChars>
-constexpr bool operator< (const literal_string<charT, LeftChars...>& lhs, const charT* rhs);
+constexpr bool operator< (const basic_string_literal<charT, LeftChars...>& lhs, const charT* rhs);
 
 template <typename charT, charT... RightChars>
-constexpr bool operator<= (const charT* lhs, const literal_string<charT, RightChars...>& rhs);
+constexpr bool operator<= (const charT* lhs, const basic_string_literal<charT, RightChars...>& rhs);
 
 template <typename charT, charT... LeftChars>
-constexpr bool operator<= (const literal_string<charT, LeftChars...>& lhs, const charT* rhs);
+constexpr bool operator<= (const basic_string_literal<charT, LeftChars...>& lhs, const charT* rhs);
 
 template <typename charT, charT... RightChars>
-constexpr bool operator> (const charT* lhs, const literal_string<charT, RightChars...>& rhs);
+constexpr bool operator> (const charT* lhs, const basic_string_literal<charT, RightChars...>& rhs);
 
 template <typename charT, charT... LeftChars>
-constexpr bool operator> (const literal_string<charT, LeftChars...>& lhs, const charT* rhs);
+constexpr bool operator> (const basic_string_literal<charT, LeftChars...>& lhs, const charT* rhs);
 
 template <typename charT, charT... RightChars>
-constexpr bool operator>= (const charT* lhs, const literal_string<charT, RightChars...>& rhs);
+constexpr bool operator>= (const charT* lhs, const basic_string_literal<charT, RightChars...>& rhs);
 
 template <typename charT, charT... LeftChars>
-constexpr bool operator>= (const literal_string<charT, LeftChars...>& lhs, const charT* rhs);
+constexpr bool operator>= (const basic_string_literal<charT, LeftChars...>& lhs, const charT* rhs);
 
 // TODO: Perhaps basic_string overloads as well?
 
@@ -551,7 +558,7 @@ constexpr bool operator>= (const literal_string<charT, LeftChars...>& lhs, const
 #pragma region Stream operators
 
 template <typename charT, charT... Chars>
-inline std::ostream& operator<< (std::ostream& os, const literal_string<charT, Chars...>& str)
+inline std::ostream& operator<< (std::ostream& os, const basic_string_literal<charT, Chars...>& str)
 {
     return (os << str.c_str());
 }
@@ -565,22 +572,22 @@ inline std::ostream& operator<< (std::ostream& os, const literal_string<charT, C
 
 #pragma region Test helpers
 
-using std::operator"" _cs;
+using std::operator"" _S;
 
 void testSizes()
 {
-    static_assert("He"_cs.size() == 2, "size() is wrong");
-    static_assert(L"Wo"_cs.size() == 2, "size() is wrong");
-    static_assert(u"Hello!"_cs.size() == 6, "size() is wrong");
-    static_assert(U"World!"_cs.size() == 6, "size() is wrong");
+    static_assert("He"_S.size() == 2, "size() is wrong");
+    static_assert(L"Wo"_S.size() == 2, "size() is wrong");
+    static_assert(u"Hello!"_S.size() == 6, "size() is wrong");
+    static_assert(U"World!"_S.size() == 6, "size() is wrong");
 }
 
 void testEmptyStrings()
 {
-    constexpr auto mb = ""_cs;
-    constexpr auto wide = L""_cs;
-    constexpr auto utf16 = u""_cs;
-    constexpr auto utf32 = U""_cs;
+    constexpr auto mb = ""_S;
+    constexpr auto wide = L""_S;
+    constexpr auto utf16 = u""_S;
+    constexpr auto utf32 = U""_S;
 
     static_assert(mb.size() == 0, "Multi-byte size() is wrong");
     static_assert(wide.size() == 0, "Wide size() is wrong");
@@ -597,25 +604,25 @@ void testEmptyStrings()
     static_assert(utf16.empty() == true, "UTF-16 empty() is wrong");
     static_assert(utf32.empty() == true, "UTF-32 empty() is wrong");
 
-    static_assert(mb == ""_cs, "operator==() is wrong");
-    static_assert(mb != " "_cs, "operator!=() is wrong");
+    static_assert(mb == ""_S, "operator==() is wrong");
+    static_assert(mb != " "_S, "operator!=() is wrong");
 }
 
 void testSearching()
 {
-    constexpr auto hi = "Hello "_cs + "World!"_cs;
+    constexpr auto hi = "Hello "_S + "World!"_S;
 
     static_assert(hi.find('?') == std::string::npos, "find() is wrong");
     static_assert(hi.find(' ') == 5, "find() is wrong");
     static_assert(hi.find('o') == 4, "find() is wrong");
-    static_assert(hi.find("orl"_cs) == 7, "find() is wrong");
+    static_assert(hi.find("orl"_S) == 7, "find() is wrong");
     static_assert(hi.rfind('o') == 7, "rfind() is wrong");
-    static_assert(hi.rfind("el"_cs) == 1, "rfind() is wrong");
+    static_assert(hi.rfind("el"_S) == 1, "rfind() is wrong");
 }
 
 void testSubstringFunctions()
 {
-    constexpr auto big = "Hello, World!"_cs;
+    constexpr auto big = "Hello, World!"_S;
     constexpr auto smaller = big.substr<7>();
     constexpr auto lessbig = big.cdr();
 
@@ -629,40 +636,40 @@ void testSubstringFunctions()
 
 void testComparisons()
 {
-    constexpr auto first = "One"_cs;
-    constexpr auto second = "Two"_cs;
-    constexpr auto last = "One"_cs;
+    constexpr auto first = "One"_S;
+    constexpr auto second = "Two"_S;
+    constexpr auto last = "One"_S;
 
     static_assert(first.compare(last) == 0, "compare() is wrong");
     static_assert(first.compare(second) == -1, "compare() is wrong");
     static_assert(second.compare(last) == 1, "compare() is wrong");
 
-    static_assert("A"_cs == "A"_cs, "operator== is wrong");
-    static_assert("A"_cs != "a"_cs, "operator!= is wrong");
-    static_assert("a"_cs > "A"_cs, "operator> is wrong");
-    static_assert("1"_cs < "2"_cs, "operator< is wrong");
+    static_assert("A"_S == "A"_S, "operator== is wrong");
+    static_assert("A"_S != "a"_S, "operator!= is wrong");
+    static_assert("a"_S > "A"_S, "operator> is wrong");
+    static_assert("1"_S < "2"_S, "operator< is wrong");
 }
 
 void testConversions()
 {
-    static_assert("0"_cs.to_number() == 0, "to_number() is wrong");
-    static_assert("1"_cs.to_number() == 1, "to_number() is wrong");
-    static_assert("11"_cs.to_number() == 11, "to_number() is wrong");
-    static_assert("65535"_cs.to_number() == 65535, "to_number() is wrong");
-    //"99kj343"_cs.to_number();
+    static_assert("0"_S.to_number() == 0, "to_number() is wrong");
+    static_assert("1"_S.to_number() == 1, "to_number() is wrong");
+    static_assert("11"_S.to_number() == 11, "to_number() is wrong");
+    static_assert("65535"_S.to_number() == 65535, "to_number() is wrong");
+    //"99kj343"_S.to_number();
 
-    constexpr ptrdiff_t number = "12345"_cs;
+    constexpr ptrdiff_t number = "12345"_S;
     static_assert(number == 12345, "operator size_type is wrong");
-    //constexpr ptrdiff_t positive = "+1"_cs;
+    //constexpr ptrdiff_t positive = "+1"_S;
     //static_assert(positive == 1, "to_number() is wrong");
 }
 
 void testConcatenation()
 {
-    constexpr auto hello = "Hello"_cs;
-    constexpr auto world = "World"_cs;
+    constexpr auto hello = "Hello"_S;
+    constexpr auto world = "World"_S;
 
-    constexpr auto together = hello + ", "_cs + world + "!"_cs;
+    constexpr auto together = hello + ", "_S + world + "!"_S;
     static_assert(together.size() == 13, "operator+ is wrong");
     static_assert(together[5UL] == ',', "operator+ is wrong");
 }
@@ -672,33 +679,34 @@ void testConcatenation()
 template <typename Str>
 struct star_wars_speaker
 {
-    star_wars_speaker() { std::cout << "Someone in Star Wars" << std::endl; }
+    star_wars_speaker() { std::cout << "_Someone in Star Wars" << std::endl; }
 };
 
 template <>
-struct star_wars_speaker<decltype("I'd just as soon kiss a Wookiee"_cs)>
+struct star_wars_speaker<std::basic_string_literal<char, 'I'>::type>
+//struct star_wars_speaker<decltype("I'd just as soon kiss a Wookiee"_S)>
 {
     star_wars_speaker() { std::cout << "Carrie Fisher" << std::endl; }
 };
 
 template <>
-struct star_wars_speaker<decltype("Luke, I am your father"_cs)>
+struct star_wars_speaker<decltype("Luke, I am your father"_S)>
 {
     star_wars_speaker() { std::cout << "James Earl Jones" << std::endl; }
 };
 
 template <>
-struct star_wars_speaker<decltype("Midi-chlorians"_cs)>
+struct star_wars_speaker<decltype("Midi-chlorians"_S)>
 {
     star_wars_speaker() { std::cout << "Liam Neeson" << std::endl; }
 };
 
 void testClassTemplates()
 {
-    auto one = star_wars_speaker<decltype("I'd just as soon kiss a Wookiee"_cs)>();
-    auto two = star_wars_speaker<decltype("Luke, I am your father"_cs)>();
-    auto thr = star_wars_speaker<decltype("Midi-chlorian"_cs)>();
-    auto fur = star_wars_speaker<decltype("How wude!"_cs)>();
+    auto one = star_wars_speaker<decltype("I'd just as soon kiss a Wookiee"_S)>();
+    auto two = star_wars_speaker<decltype("Luke, I am your father"_S)>();
+    auto thr = star_wars_speaker<decltype("Midi-chlorian"_S)>();
+    auto fur = star_wars_speaker<decltype("How wude!"_S)>();
 }
 
 #pragma endregion
@@ -712,29 +720,29 @@ void star_trek_speak(const Str &)
 }
 
 template <>
-void star_trek_speak(const decltype("Illogical captain"_cs) &)
+void star_trek_speak(const decltype("Illogical captain"_S) &)
 {
     std::cout << "Leonard Nimoy" << std::endl;
 }
 
 template <>
-void star_trek_speak(const decltype("He's dead Jim"_cs) &)
+void star_trek_speak(const decltype("He's dead Jim"_S) &)
 {
     std::cout << "DeForest Kelley" << std::endl;
 }
 
 template <>
-void star_trek_speak(const decltype("Oh my"_cs) &)
+void star_trek_speak(const decltype("Oh my"_S) &)
 {
     std::cout << "George Takei" << std::endl;
 }
 
 void testFunctionTemplates()
 {
-    star_trek_speak("Illogical captain"_cs);
-    star_trek_speak("He's dead Jim"_cs);
-    star_trek_speak("Oh my"_cs);
-    star_trek_speak("Khaaaaaaaaaaannnnnn!"_cs);
+    star_trek_speak("Illogical captain"_S);
+    star_trek_speak("He's dead Jim"_S);
+    star_trek_speak("Oh my"_S);
+    star_trek_speak("Khaaaaaaaaaaannnnnn!"_S);
 }
 
 #pragma endregion
@@ -755,3 +763,32 @@ int main()
     return 0;
 }
 
+
+/*
+template <char... Chars>
+class Obj;
+
+template <char... Chars>
+constexpr Obj<Chars...> operator "" _test();
+
+template <char... Chars>
+class Obj
+{
+    friend Obj operator"" _test <Chars...>();
+
+private:
+    constexpr Obj() { }
+};
+
+template <char... Chars>
+constexpr Obj<Chars...> operator "" _test()
+{
+    return Obj<Chars...>();
+}
+
+int main()
+{
+    constexpr auto x = 1234_test;
+    return 0;
+}
+*/
