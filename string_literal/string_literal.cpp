@@ -3,7 +3,7 @@
 //E:\cxx_snippets\string_literal>clang++.exe -std=c++1y string_literal.cpp -Wno-gnu-string-literal-operator-template
 
 
-//char * gets(char *); // works around silly C++11/14 library issue on ToT clang
+char * gets(char *); // works around silly C++11/14 library issue on ToT clang
 
 #include <iostream>
 #include <ostream>
@@ -380,7 +380,26 @@ public:
 
     #pragma endregion
 
-    // There are no accessors for empty strings
+    constexpr charT operator[] (size_t pos) const
+    {
+        return _data[0];
+    }
+
+    constexpr charT at(size_t pos) const
+    {
+        return _data[0];
+    }
+
+    constexpr charT back() const
+    {
+        return _data[0];
+    }
+
+    constexpr charT front() const
+    {
+        return _data[0];
+    }
+
 
     // There are no search functions for empty strings
 
@@ -606,6 +625,16 @@ void testEmptyStrings()
 
     static_assert(mb == ""_S, "operator==() is wrong");
     static_assert(mb != " "_S, "operator!=() is wrong");
+
+    static_assert(mb[0] == '\0', "operator[] is wrong");
+    static_assert(wide[0] == L'\0', "operator[] is wrong");
+    static_assert(utf16[0] == u'\0', "operator[] is wrong");
+    static_assert(utf32[0] == U'\0', "operator[] is wrong");
+
+    static_assert(mb[1] == '\0', "operator[] is wrong");
+    static_assert(wide[1] == L'\0', "operator[] is wrong");
+    static_assert(utf16[1] == u'\0', "operator[] is wrong");
+    static_assert(utf32[1] == U'\0', "operator[] is wrong");
 }
 
 void testSearching()
@@ -679,7 +708,7 @@ void testConcatenation()
 template <typename Str>
 struct star_wars_speaker
 {
-    star_wars_speaker() { std::cout << "_Someone in Star Wars" << std::endl; }
+    star_wars_speaker() { std::cout << "Someone in Star Wars" << std::endl; }
 };
 
 template <>
