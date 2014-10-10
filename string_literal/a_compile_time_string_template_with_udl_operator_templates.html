@@ -61,7 +61,7 @@
 <body>
   <table border="1" class="docinfo">
     <tr> <th>Doc. No.:</th> <td>D3933</td> </tr>
-    <tr> <th>Date:</th>     <td>2014-02-15</td> </tr>
+    <tr> <th>Date:</th>     <td>2014-10-10</td> </tr>
     <tr> <th>Project:</th>  <td>Programming Language C++, Reflection Study Group</td> </tr>
     <tr> <th>Reply To:</th> <td>Michael Price<br/>
                                 &lt;<a href="mailto:michael.b.price.dev@gmail.com">michael.b.price.dev@gmail.com</a>&gt;</td> </tr>
@@ -72,20 +72,27 @@
 
   <h2><a name="toc">I. Table of Contents</a></h2>
 
-  <p style="background-color:#FFFF99;">
-  [<i>TODO:</i> Fill this out &mdash;<i>end TODO</i>]
-  </p>
+  <ul style="list-style-type: none;">
+    <li><a href="#toc">I. Table of Contents</a></li>
+    <li><a href="#introduction">II. Introduction</a></li>
+    <li><a href="#motivation">III. Motivation</a></li>
+    <li><a href="#impact">IV. Impact On the Standard</a></li>
+    <li><a href="#design">V. Design Decisions</a></li>
+    <li><a href="#specification">VI. Technical Specification</a></li>
+    <li><a href="#acknowledgements">VII. Acknowledgements</a></li>
+    <li><a href="#references">VIII. References</a></li>
+  </ul>
 
-  <h2><a name="introduction">II.Introduction</a></h2>
+  <h2><a name="introduction">II. Introduction</a></h2>
 
   <p>
     Proposes a compile-time string library type template, <code>std::basic_string_literal</code>, a user-defined literal (UDL) to facilitate instantiation of said template, as well as a language extension to allow implementation of the specified UDL.
   </p>
 
-  <h2><a name="motivation">III.Motivation</a></h2>
+  <h2><a name="motivation">III. Motivation</a></h2>
 
   <p>
-    The type model of literal strings in C++ was largely inherited directly from C, with a few minor tweaks throughout the years (such as restricting coversions to non-const <code>char*</code>). The inclusion of the standard library's <code>std::basic_string</code> type solves many of the problems with the usability of string literals by providing a rich interface for accessing, searching, and manipulating the value of the string. There are many places where <code>std::basic_string</code> or <code>const char*</code> both fall short.
+    The type model of literal strings in C++ was largely inherited directly from C, with a few minor tweaks throughout the years (such as restricting conversions to non-const <code>char*</code>). The inclusion of the standard library's <code>std::basic_string</code> template solves many of the problems with the usability of string literals by providing a rich interface for accessing, searching, and manipulating the value of the string. There are many places where <code>std::basic_string</code> or <code>const char*</code> both fall short.
   </p>
 
   <pre class="example">
@@ -123,11 +130,11 @@
   metaprogram&lt;decltype("Hello, World!")&gt; m3; // Not what you wanted!
   metaprogram&lt;decltype(std::string("Hello, World!"))&gt; m4; // Also not what you wanted!
   metaprogram&lt;boost::mpl::string&lt;'Hell','o, W','orld', '!'&gt;&gt; m5; // There we go! But oh my...
-  metaprogram&lt;_S("Hello, World!")&gt; m6; // Don't look behind the curtain (see reference [1])</code>
+  metaprogram&lt;_S("Hello, World!")&gt; m6; // Don't look behind the curtain (see reference [<a href="#ref_1">1</a>])</code>
   </pre>
 
   <p>
-    We propose a new library template, <code>std::basic_string_literal</code>, and a UDL to solve the problems with the previous example. Application of the template to the problems above is shown below.
+    We propose a new library template, <code>std::basic_string_literal</code>, and a UDL to solve the problems with the previous example. Application of the template to the problems above is shown below. An implementation of this template can be found at [<a href="#ref_2">2</a>].
   </p>
 
   <pre class="example">
@@ -167,21 +174,17 @@
   <h2><a name="impact">IV. Impact On the Standard</a></h2>
 
   <p>
-    This proposal losely <em>depends</em> on the specification of <code>std::basic_string</code>. It does not however <em>affect</em> the specficiation of that template. It does depend on the UDL mechanism [section #???] introduced in C++11. It also requires an extension of the UDL operator template mechanism to apply to string literals in addition to numeric literals.
-  </p>
-
-  <p style="background-color:#FFFF99;">
-  [<i>TODO:</i> Fill in section numbers against n3797 or the DIS. &mdash;<i>end TODO</i>]
+    This proposal <em>depends</em> on user-defined literals which were introduced in C++11. It also requires an extension of the UDL operator template mechanism to apply to string literals in addition to numeric literals. It may also require extension of the <code>basic_string</code> and <code>basic_string_view</code> templates in order to provide the best integration with the standard library.
   </p>
 
   <h2><a name="design">V. Design Decisions</a></h2>
 
   <p>
-    The design and wording for the UDL operator template extension has been taken directly from N3599 [2]. There are additional rationales in that paper for the usefulness of that particular extension.
+    The design and wording for the UDL operator template extension has been taken from N3599 [<a href="#ref_3">3</a>]. At the suggestion of that paper's author, Richard Smith, I have clarified that <em>C</em> is cv-unqualified. There are additional rationales in that paper for the usefulness of that particular extension.
   </p>
 
   <p>
-    The design of the proposed compile-time string template is meant to include the <code>const</code> portions of the <code>std::basic_string</code> template as closely as possible, while also adding a couple of additional capabilities. The proposed UDL that would construct these new types uses an <code>S</code>, whereas the UDL for <code>std::basic_string</code> uses an <code>s</code>; this was a conscious design decision.
+    The design of the proposed compile-time string template is meant to include the <code>const</code> portions of the <code>std::basic_string</code> template as closely as possible, while also adding a couple of additional capabilities. The proposed UDL that would construct these new types uses an <code>S</code> (uppercase), whereas the UDL for <code>std::basic_string</code> uses an <code>s</code> (lowercase); this was a conscious design decision.
   </p>
 
   <p>
@@ -189,13 +192,14 @@
   </p>
 
   <p>
-    There are a couple of design alternatives that were identified, but are not explored in this paper. One design would forego the extension to UDL operator templates in favor of the <em>cooked</em> form of the UDL.  This could allow a library-only solution with possibly improved efficiency, but might restrict the possible interface.  Another alternative would take the approach that lambdas and/or <code>std::initializer_list</code> took, which would result in "compiler magic" to provide the appropriate type.  The author feels that the proposal in this paper is a middle-ground between these other approaches.  Hopefully, papers making the alternative design decisions (as well as implementations) will be produced so that a proper comparison can occur.
+    There are a couple of design alternatives that were identified, but are not explored in this paper. One design would forego the extension to UDL operator templates in favor of the <em>cooked</em> form of the UDL. This could allow a library-only solution with possibly improved efficiency, but might restrict the possible uses (see N4121 [<a href="#ref_4">4</a>]). Another alternative would take the approach that lambdas and/or <code>std::initializer_list</code> took, which would result in "compiler magic" to provide the appropriate type.  The author feels that the proposal in this paper is a middle-ground between these other approaches.
   </p>
 
   <h2><a name="specification">VI. Technical Specification</a></h2>
 
-  <p style="background-color:#FFFF99;">
-  [<i>RFC:</i> How much of a technical specification should this have at this point.  Do we want to pass it through EWG/LEWG before settling on wording? &mdash;<i>end RFC</i>]
+  <p>
+    Disclaimer: This technical specification may not be complete and is likely fraught with errors.
+    It will need to be reviewed carefully and updated to be in proper form for inclusion in the standard.
   </p>
 
   <h3><a name="specification/udl_template">UDL operator template extension</a></h3>
@@ -223,7 +227,7 @@
 
   <blockquote class="std">
     If <em>L</em> is a <em>user-defined-string-literal</em>, <ins>let <em>C</em> be the
-    element type of the string literal as determined by its
+    cv-unqualified element type of the string literal as determined by its
     <em>encoding-prefix</em>,</ins> let <em>str</em> be the literal without its
     <em>ud-suffix</em><ins>,</ins> and let <em>len</em> be the number of code units in
     <em>str</em> (i.e., its length excluding the terminating null character).
@@ -287,24 +291,6 @@
 
   <h3><a name="specification/basic_string_literal">Compile-time string template</a></h3>
 
-<!--
-  <p>
-    Insert clause into [string.classes] (21.3)
-  </p>
-
-  <blockquote class="stdins"><p>
-    The header <code>&lt;string_literal&gt;</code> defines the <code>basic_string_literal</code> class template for representing <code>constexpr</code> sequences of char-like objects and four typedefs, <code>string_literal</code>, <code>u16string_literal</code>, <code>u32string_literal</code>, and <code>wstring_literal</code>, that name the specializations <code>basic_string_literal&lt;char, char...&gt;</code>, <code>basic_string_literal&lt;char16_t&gt;</code>, <code>basic_string_literal&lt;char32_t&gt;</code>, and <code>basic_string_literal&lt;wchar_t&gt;</code>, respectively.
-  </p></blockquote>
--->
-  <p style="background-color:#FFFF99;">
-  [<i>RFC:</i> Put in the string header or a new header (string_literal)? &mdash;<i>end RFC</i>]
-  </p>
-
-<!--
-  <p>
-    Insert a <strong>Header <code>&lt;string_literal&gt;</code> synopsis</strong> into [string.classes] (21.3) after the <strong>Header <code>&lt;string&gt;</code> synopsis</strong>
-  </p>
--->
   <p>
     Edit [string.classes] (21.3)/1 as follows:
   </p>
@@ -602,8 +588,8 @@
   </blockquote>
 
 
-  <p style="background-color:#FFFF99;">
-  [<i>RFC:</i> This section still needs lots of work. There are implementation details in here for one, and we might consider a smaller interface at first since some of these operations might be too expensive. Also, should this be based on char_traits&lt;charT&gt; as well? &mdash;<i>end RFC</i>]
+  <p>
+  Insert as 21.5
   </p>
 
   <blockquote class="stdins"><p>
@@ -630,10 +616,8 @@
       using value_type = charT;
       using size_type = std::size_t;
       using difference_type = std::size_t;
-      // iterator types???
 
       using tail_type = basic_string_literal&lt;charT&gt;;
-      //using reverse_type = basic_string_literal&lt;charT&gt;;
 
       // Size-related functions
       constexpr size_type size () const;
@@ -684,10 +668,6 @@
       constexpr size_type find_last_not_of (const charT* s, size_type pos = sizeof...(Chars)) const;
       constexpr size_type find_last_not_of (charT ch, size_t pos = sizeof...(Chars)) const;
      
-      // Substring function
-      /* TODO: return type */ substr (size_type pos = 0, size_type count = std::string::npos) const;
-      /* TODO: this return type might require using a recursive structure */
-      
       // Comparison functions
       template &lt;charT... OtherChars&gt;;
       constexpr int compare (const basic_string_literal&lt;charT, OtherChars...&gt; &amp; other) const;
@@ -727,20 +707,18 @@
         using value_type = charT;
         using size_type = std::size_t;
         using difference_type = std::size_t;
-        // iterator types???
 
         using tail_type = basic_string_literal&lt;charT&gt;;
-        //using reverse_type = basic_string_literal&lt;charT&gt;;
 
         constexpr size_type size() const;
         constexpr size_type length() const;
         constexpr bool empty() const;
 
-        // There are no accessors for empty strings
-
-        // There are no search functions for empty strings
-
-        // There are no substring functions for empty strings
+        // These accessor methods always return the null character
+        constexpr charT operator[] (size_t pos) const;
+        constexpr charT at(size_t pos) const;
+        constexpr charT back() const;
+        constexpr charT front() const;
 
         template &lt;charT... OtherChars&gt;
         constexpr int compare(const basic_string_literal&lt;charT, OtherChars...&gt;& other) const;
@@ -816,7 +794,7 @@
     template &lt;typename CharT, class traits, class Alloc&gt;
     constexpr bool operator&gt;= (const basic_string&lt;charT,Traits,Alloc&gt;&amp; lhs, const charT* rhs);
 
-    // Stream inseration operator
+    // Stream insertion operator
     template &lt;typename charT, charT... Chars&gt;
     inline std::ostream&amp; operator&lt;&lt; (std::ostream&amp; os, const basic_string_literal&lt;charT, Chars...&gt;&amp; str);</code>
     </pre>
@@ -835,20 +813,26 @@
   </p></blockquote>
 
 
-  <h2><a name="going_forward">VII. Acknowledgements</a></h2>
+  <h2><a name="acknowledgements">VII. Acknowledgements</a></h2>
 
-  <p style="background-color:#FFFF99;">
-  [<i>TODO:</i> Fill this out &mdash;<i>end TODO</i>]
+  <p>
+  I'd like to thank my employer, Perceptive Software, for their continued support of my work with the committee.
+  Also many thanks to the brave souls on the SG7 mailing list who are contributing to our ongoing efforts
+  towards compile-time reflection support in the langauge and library.  Special thanks to Richard Smith who
+  paved the way with N3599, particularly the implementation of that paper in clang, so that I could provide
+  working examples for this paper.
   </p>
 
-  <h2><a name="acknowledgements">VIII. References</a></h2>
+  <h2><a name="references">VIII. References</a></h2>
 
-  <p style="background-color:#FFFF99;">
-  [<i>TODO:</i> There's got to be a better way to document these. &mdash;<i>end TODO</i>]
-  </p>
-
+  <a name="ref_1" />
   <div>[1] <a href="http://cpp-next.com/archive/2012/10/using-strings-in-c-template-metaprograms/">Using strings in C++ template metaprograms </a></div>
-  <div>[2] <a href="http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2013/n3599.html">Literal operator templates for strings</a> </div>
+  <a name="ref_2" />
+  <div>[2] <a href="https://github.com/michaelbprice/cxx_snippets/blob/master/string_literal/string_literal.cpp">https://github.com/michaelbprice/cxx_snippets/blob/master/string_literal/string_literal.cpp</a></div>
+  <a name="ref_3" />
+  <div>[3] <a href="http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2013/n3599.html">Literal operator templates for strings</a> </div>
+  <a name="ref_4" />
+  <div>[4] <a href="http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2014/n4121.pdf">Compile-Time String: std::string_literal&lt;n&gt;</a> </div>
 </a></div>
 
 </body>
